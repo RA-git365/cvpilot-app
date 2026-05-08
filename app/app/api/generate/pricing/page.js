@@ -79,6 +79,12 @@ export default function PricingPage() {
   const [selectedPack, setSelectedPack] = useState("");
   const [payingPlan, setPayingPlan] = useState("");
   const [user, setUser] = useState(null);
+  const [paymentConfig, setPaymentConfig] = useState({
+    configured: false,
+    keyId: "",
+    mode: "test",
+    loaded: false,
+  });
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -93,11 +99,35 @@ export default function PricingPage() {
     return () => unsubscribe();
   }, []);
 
+  useEffect(() => {
+    fetch("/api/razorpay/config")
+      .then((response) => response.json())
+      .then((config) => {
+        setPaymentConfig({
+          configured: Boolean(config.configured),
+          keyId: config.keyId || "",
+          mode: config.mode || "test",
+          loaded: true,
+        });
+      })
+      .catch(() => {
+        setPaymentConfig((config) => ({
+          ...config,
+          loaded: true,
+        }));
+      });
+  }, []);
+
   const takePlan = async (plan) => {
     if (plan.id === "free-forever") {
       localStorage.setItem("cvpilot_selected_pack", JSON.stringify(plan));
       alert("Free plan selected.");
       router.push("/");
+      return;
+    }
+
+    if (!paymentConfig.configured) {
+      alert("Razorpay keys are missing. Add your key id and key secret in .env.local, then restart the app.");
       return;
     }
 
@@ -170,6 +200,31 @@ export default function PricingPage() {
           </p>
         </div>
 
+        <div className="mb-8 rounded-lg border border-slate-800 bg-slate-900 p-6 flex justify-between items-center flex-wrap gap-5">
+          <div>
+            <span className="text-sm text-blue-200 font-bold uppercase tracking-[0.15em]">
+              Razorpay account
+            </span>
+            <h2 className="text-2xl font-bold mt-2">
+              {paymentConfig.configured ? "Checkout is connected" : "Checkout needs API keys"}
+            </h2>
+            <p className="text-slate-400 mt-2 leading-7">
+              {paymentConfig.configured
+                ? `Using ${paymentConfig.mode.toUpperCase()} key ${paymentConfig.keyId}. Orders are created and verified on the server.`
+                : "Add NEXT_PUBLIC_RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET in .env.local to activate paid plans."}
+            </p>
+          </div>
+          <strong
+            className="rounded-full px-4 py-2 text-sm"
+            style={{
+              background: paymentConfig.configured ? "#064e3b" : "#7f1d1d",
+              color: paymentConfig.configured ? "#d1fae5" : "#fee2e2",
+            }}
+          >
+            {paymentConfig.configured ? "Connected" : paymentConfig.loaded ? "Not configured" : "Checking"}
+          </strong>
+        </div>
+
         <div className="grid md:grid-cols-2 xl:grid-cols-4 gap-7">
           {plans.map((plan) => {
             const highlighted = selectedPack === plan.id || plan.id === "interview-pro";
@@ -206,11 +261,14 @@ export default function PricingPage() {
                 <button
                   onMouseEnter={() => previewPlan(plan)}
                   onClick={() => takePlan(plan)}
-                  disabled={payingPlan === plan.id}
+                  disabled={payingPlan === plan.id || (plan.id !== "free-forever" && !paymentConfig.configured)}
                   className="w-full py-3 rounded-lg font-semibold text-white"
                   style={{
                     background: plan.color,
-                    opacity: payingPlan === plan.id ? 0.72 : 1,
+                    opacity:
+                      payingPlan === plan.id || (plan.id !== "free-forever" && !paymentConfig.configured)
+                        ? 0.72
+                        : 1,
                   }}
                 >
                   {payingPlan === plan.id ? "Opening Razorpay..." : plan.button}
@@ -225,8 +283,8 @@ export default function PricingPage() {
             Build, preview, score, save, and export in one place.
           </h3>
           <p className="text-lg opacity-90 max-w-2xl mx-auto">
-            CVPilot is ready for a payment gateway when you want real checkout.
-            For now, the app records the selected pack and returns users to the builder.
+            Paid packs open Razorpay Checkout, verify the payment signature on the
+            server, and unlock premium templates only after verification succeeds.
           </p>
         </div>
       </div>

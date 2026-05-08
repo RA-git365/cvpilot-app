@@ -3,6 +3,10 @@ import crypto from "crypto";
 import { NextResponse } from "next/server";
 
 import { getRazorpayPlan } from "../../../../lib/razorpayPlans";
+import {
+  getRazorpayAuthHeader,
+  getRazorpayCredentials,
+} from "../../../../lib/razorpayServer";
 
 export async function POST(req) {
   try {
@@ -16,7 +20,8 @@ export async function POST(req) {
     } = await req.json();
 
     const plan = getRazorpayPlan(planId);
-    const secret = process.env.RAZORPAY_KEY_SECRET;
+    const credentials = getRazorpayCredentials();
+    const authHeader = getRazorpayAuthHeader();
 
     if (!plan || plan.amount <= 0) {
       return NextResponse.json(
@@ -25,7 +30,7 @@ export async function POST(req) {
       );
     }
 
-    if (!secret) {
+    if (!credentials.configured || !authHeader) {
       return NextResponse.json(
         { error: "Razorpay secret key is not configured." },
         { status: 500 }
@@ -41,7 +46,7 @@ export async function POST(req) {
 
     const payload = `${razorpay_order_id}|${razorpay_payment_id}`;
     const expectedSignature = crypto
-      .createHmac("sha256", secret)
+      .createHmac("sha256", credentials.keySecret)
       .update(payload)
       .digest("hex");
 
@@ -60,6 +65,46 @@ export async function POST(req) {
     if (!verified) {
       return NextResponse.json(
         { verified: false, error: "Payment signature mismatch." },
+        { status: 400 }
+      );
+    }
+
+    const orderResponse = await fetch(
+      `https://api.razorpay.com/v1/orders/${razorpay_order_id}`,
+      {
+        headers: {
+          Authorization: authHeader,
+        },
+      }
+    );
+    const order = await orderResponse.json();
+
+    if (!orderResponse.ok) {
+      return NextResponse.json(
+        {
+          verified: false,
+          error: order.error?.description || "Unable to confirm Razorpay order.",
+        },
+        { status: orderResponse.status }
+      );
+    }
+
+    if (order.amount !== plan.amount || order.currency !== plan.currency) {
+      return NextResponse.json(
+        {
+          verified: false,
+          error: "Paid amount does not match the selected plan.",
+        },
+        { status: 400 }
+      );
+    }
+
+    if (order.notes?.planId && order.notes.planId !== plan.id) {
+      return NextResponse.json(
+        {
+          verified: false,
+          error: "Paid order does not match the selected plan.",
+        },
         { status: 400 }
       );
     }

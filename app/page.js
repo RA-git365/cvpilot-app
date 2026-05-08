@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { onAuthStateChanged } from "firebase/auth";
 
@@ -14,8 +14,7 @@ import JobSearchPanel from "../components/JobSearchPanel";
 
 import { auth } from "../lib/firebase";
 import { saveResumeCloud } from "../lib/cloudSave";
-
-import { calculateATS, saveDraft, loadDraft } from "../lib/resumeUtils";
+import { analyzeResume, saveDraft, loadDraft } from "../lib/resumeUtils";
 import { defaultResume } from "../lib/resumeData";
 
 const freeTemplates = [
@@ -44,18 +43,8 @@ const subscriptionPacks = [
     accent: "#DBEAFE",
     templateCount: "5 premium templates",
     bestFor: "Freshers, interns, and early-career applicants",
-    templates: [
-      "blue-corporate",
-      "minimal-fresher",
-      "smart-sidebar",
-      "bold-skills",
-      "elegant-entry",
-    ],
-    features: [
-      "Modern fresher layouts",
-      "Unlimited PDF and DOCX exports",
-      "ATS-friendly section order",
-    ],
+    templates: ["blue-corporate", "minimal-fresher", "smart-sidebar", "bold-skills", "elegant-entry"],
+    features: ["Fresher-ready layouts", "Unlimited exports", "ATS-safe section order"],
   },
   {
     id: "interview-pro",
@@ -74,11 +63,7 @@ const subscriptionPacks = [
       "sales-impact",
       "creative-clean",
     ],
-    features: [
-      "Recruiter-ready premium designs",
-      "Stronger profile and impact sections",
-      "Cloud save for multiple resumes",
-    ],
+    features: ["Premium ATS layouts", "Cloud save", "Impact-focused sections"],
   },
   {
     id: "executive-edge",
@@ -100,11 +85,7 @@ const subscriptionPacks = [
       "international-max",
       "architect-pro",
     ],
-    features: [
-      "Leadership and international CV styles",
-      "Executive profile positioning",
-      "Priority support and AI suggestions",
-    ],
+    features: ["Leadership positioning", "AI suggestions", "Priority support"],
   },
 ];
 
@@ -113,6 +94,10 @@ const templates = [
   ...subscriptionPacks.flatMap((pack) =>
     pack.templates.map((name) => ({
       name,
+      title: name
+        .split("-")
+        .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+        .join(" "),
       color: pack.color,
       pack: pack.price,
       packName: pack.name,
@@ -120,13 +105,99 @@ const templates = [
   ),
 ];
 
-function FullResumePreview({ form, template, ats = 96 }) {
+const featureCards = [
+  ["ATS scoring", "Weighted scoring for keywords, structure, impact evidence, and readability."],
+  ["Job matching", "Paste a JD and see matched keywords, missing keywords, and tailoring gaps."],
+  ["Premium templates", "Modern, recruiter-friendly layouts that avoid ATS-hostile formatting."],
+  ["Export workflow", "Preview, edit, save, and export PDF or DOCX from one guided workspace."],
+];
+
+const testimonials = [
+  {
+    quote: "CVPilot turned my plain resume into a clear, targeted CV in one sitting.",
+    name: "Ananya S.",
+    role: "Salesforce Developer",
+  },
+  {
+    quote: "The keyword breakdown made it obvious why my resume was not matching roles.",
+    name: "Rahul M.",
+    role: "Product Analyst",
+  },
+  {
+    quote: "The paid templates look professional without breaking ATS readability.",
+    name: "Meera K.",
+    role: "Finance Manager",
+  },
+];
+
+const demoBefore = {
+  ...defaultResume,
+  name: "Priya Shah",
+  role: "Business Analyst",
+  email: "priya@example.com",
+  phone: "+91 90000 00000",
+  location: "Bengaluru",
+  summary: "Business analyst looking for a good role. Worked on reports and requirements.",
+  skills: "Excel, SQL, Jira",
+  exp: "Worked with teams. Made dashboards. Helped with product documents.",
+  education: "BBA, 2021",
+};
+
+const demoAfter = {
+  ...demoBefore,
+  summary:
+    "Business Analyst with experience translating stakeholder needs into dashboards, user stories, and measurable process improvements for SaaS teams.",
+  skills: "SQL, Excel, Jira, Power BI, User Stories, Requirements Gathering, Process Mapping, Stakeholder Management",
+  exp:
+    "- Built KPI dashboards that reduced weekly reporting effort by 30%.\n- Converted customer feedback into prioritized user stories for product and engineering teams.\n- Improved requirement clarity by mapping workflows, edge cases, and acceptance criteria.",
+  projects:
+    "Sales Insights Dashboard: consolidated data from multiple sources to help leadership track conversion, churn, and pipeline health.",
+  achievements: "Shortlisted for 4 analyst roles after tailoring resume keywords to target job descriptions.",
+};
+
+function MiniResumePreview({ form, template, score, label }) {
   return (
-    <div className="cvp-full-resume-frame">
-      <div className="cvp-full-resume-scale">
-        <ResumeDocument form={form} ats={ats} template={template} compact />
+    <article className="cvp-demo-resume">
+      <div className="cvp-demo-label">
+        <span>{label}</span>
+        <strong>{score}% ATS</strong>
       </div>
-    </div>
+      <div className="cvp-demo-frame">
+        <div className="cvp-demo-scale">
+          <ResumeDocument form={form} ats={score} template={template} compact />
+        </div>
+      </div>
+    </article>
+  );
+}
+
+function FlowSteps() {
+  const steps = ["Upload CV", "Analyze", "ATS score", "Fix issues", "Preview", "Download"];
+
+  return (
+    <section className="cvp-section" id="flow">
+      <div className="cvp-section-title">
+        <span>Guided flow</span>
+        <h2>From raw CV to application-ready resume</h2>
+      </div>
+
+      <div className="cvp-flow-grid">
+        {steps.map((step, index) => (
+          <article key={step} className="cvp-flow-step">
+            <b>{index + 1}</b>
+            <strong>{step}</strong>
+            <p>
+              {index === 0 && "Upload a PDF or DOCX, or start from the editable form."}
+              {index === 1 && "Compare content against the target role and job description."}
+              {index === 2 && "Review a detailed score for structure, keywords, impact, and readability."}
+              {index === 3 && "Use suggestions to add missing keywords and stronger outcomes."}
+              {index === 4 && "Inspect the resume in desktop and mobile preview modes."}
+              {index === 5 && "Export a clean PDF or DOCX for real applications."}
+            </p>
+          </article>
+        ))}
+      </div>
+    </section>
   );
 }
 
@@ -136,9 +207,7 @@ export default function Home() {
   const [user, setUser] = useState(null);
   const [view, setView] = useState("desktop");
   const [template, setTemplate] = useState(templates[0]);
-  const [ats, setAts] = useState(96);
   const [selectedPack, setSelectedPack] = useState(null);
-
   const [form, setForm] = useState({
     ...defaultResume,
     name: "Rohith Annadatha",
@@ -148,14 +217,19 @@ export default function Home() {
     location: "India",
     summary:
       "Certified Salesforce developer skilled in Apex, LWC, integrations and scalable CRM architecture.",
-    skills: "Salesforce, Apex, LWC, SOQL, REST API, Flows",
-    exp: "3+ years delivering enterprise-grade Salesforce solutions.",
+    skills: "Salesforce, Apex, LWC, SOQL, REST API, Flows, Integration, Automation",
+    exp:
+      "- Delivered enterprise Salesforce solutions across Apex, LWC, Flow, and REST integrations.\n- Automated CRM workflows that reduced manual sales operations effort by 35%.",
     projects:
       "Built automated lead routing, LWC dashboards, and REST integrations that improved sales operations.",
     education: "B.Tech in Computer Science",
     certifications: "Salesforce Platform Developer I, Administrator",
     achievements: "Reduced manual CRM work by 35% through flow automation.",
+    jd:
+      "Salesforce Developer with Apex, Lightning Web Components, SOQL, REST integration, automation, CRM workflows, and stakeholder communication.",
   });
+
+  const analysis = useMemo(() => analyzeResume(form), [form]);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
@@ -184,19 +258,8 @@ export default function Home() {
   }, []);
 
   const runATS = () => {
-    const resumeText = `
-${form.role}
-${form.summary}
-${form.skills}
-${form.exp}
-${form.projects}
-${form.education}
-${form.certifications}
-${form.achievements}
-`;
-
-    const score = calculateATS(resumeText, form.jd);
-    setAts(score);
+    saveDraft(form);
+    alert(`ATS analysis complete: ${analysis.score}% (${analysis.readiness}).`);
   };
 
   const saveResume = async () => {
@@ -204,14 +267,14 @@ ${form.achievements}
       saveDraft(form);
 
       if (user) {
-        await saveResumeCloud(user, form, ats, template);
-        alert("Saved to cloud");
+        await saveResumeCloud(user, form, analysis.score, template);
+        alert("Saved to cloud.");
       } else {
-        alert("Saved locally");
+        alert("Saved locally.");
       }
     } catch (error) {
       console.error(error);
-      alert("Save failed");
+      alert("Save failed.");
     }
   };
 
@@ -223,20 +286,16 @@ ${form.achievements}
       ...item.form,
     });
 
-    const selected = templates.find((t) => t.name === item.template);
+    const selected = templates.find((entry) => entry.name === item.template);
 
     if (selected) {
       setTemplate(selected);
     }
 
-    setAts(item.ats || 96);
-
     window.scrollTo({
-      top: 0,
+      top: document.getElementById("builder")?.offsetTop || 0,
       behavior: "smooth",
     });
-
-    alert("Resume loaded");
   };
 
   const openTemplatePage = (item) => {
@@ -247,12 +306,15 @@ ${form.achievements}
   };
 
   const choosePack = (pack) => {
+    if (pack.id === "free-forever") {
+      localStorage.setItem("cvpilot_selected_pack", JSON.stringify(pack));
+      setSelectedPack(pack);
+      return;
+    }
+
     if (!user?.email) {
       alert("Please login with email first. Paid packs and invoices need the same account email.");
-      window.scrollTo({
-        top: 0,
-        behavior: "smooth",
-      });
+      document.getElementById("account")?.scrollIntoView({ behavior: "smooth" });
       return;
     }
 
@@ -270,201 +332,201 @@ ${form.achievements}
 
   const hasPaidPack = Boolean(user?.email && selectedPack?.paymentId);
 
-  const theme = {
-    bg: dark
-      ? "linear-gradient(135deg,#020617,#111827,#0f172a)"
-      : "linear-gradient(135deg,#f8fafc,#eef2ff,#ecfeff)",
-    card: dark ? "rgba(15,23,42,0.86)" : "rgba(255,255,255,0.88)",
-    text: dark ? "#f8fafc" : "#0f172a",
-    sub: dark ? "#cbd5e1" : "#475569",
-    border: dark ? "rgba(255,255,255,0.1)" : "#e2e8f0",
-    solid: dark ? "#111827" : "#ffffff",
-  };
-
   return (
-    <main
-      className="cvp-app-shell"
-      style={{
-        minHeight: "100vh",
-        background: theme.bg,
-        color: theme.text,
-        fontFamily: "Inter, Arial, sans-serif",
-      }}
-    >
-      <Navbar dark={dark} setDark={setDark} theme={theme} />
+    <main className={`cvp-app-shell ${dark ? "is-dark" : ""}`} id="top">
+      <Navbar dark={dark} setDark={setDark} />
 
-      <div style={{ marginTop: 18 }}>
-        <LoginPanel user={user} />
-      </div>
-
-      <div style={{ marginTop: 18 }}>
-        <MyResumes user={user} onOpen={openResume} />
-      </div>
-
-      <div style={{ marginTop: 18 }}>
-        <JobSearchPanel form={form} user={user} />
-      </div>
-
-      <section
-        className="cvp-main-grid"
-        style={{
-          display: "grid",
-          gridTemplateColumns: "minmax(0, 0.92fr) minmax(0, 1.08fr)",
-          gap: 28,
-          marginTop: 22,
-          alignItems: "start",
-        }}
-      >
-        <div>
-          <div
-            className="cvp-hero-badge"
-            style={{
-              display: "inline-block",
-            }}
-          >
-            CVPilot Full Scale
-          </div>
-
-          <h1
-            className="cvp-hero-title"
-            style={{
-              lineHeight: 1.05,
-              letterSpacing: 0,
-            }}
-          >
-            Build a complete CV that looks interview-ready.
-          </h1>
-
-          <p
-            className="cvp-hero-copy"
-            style={{
-              color: theme.sub,
-            }}
-          >
-            Create the resume, score it for ATS, save it, export it, and choose
-            the exact template pack that fits the person's career level.
+      <section className="cvp-hero">
+        <div className="cvp-hero-content">
+          <span className="cvp-hero-badge">AI resume builder for serious job applications</span>
+          <h1>Build an ATS-ready CV that looks premium and gets interviews.</h1>
+          <p>
+            CVPilot helps you upload, score, improve, preview, and export a recruiter-ready
+            resume with job-specific keyword analysis and premium templates.
           </p>
 
-          <section className="cvp-panel cvp-showcase-panel" style={{ background: theme.card, borderColor: theme.border }}>
-            <div className="cvp-section-head">
-              <div>
-                <strong>Start With 2 Free Templates</strong>
-                <p style={{ color: theme.sub }}>
-                  The first page keeps free choices simple and shows full resume
-                  previews before the paid packs.
-                </p>
-              </div>
-              <span>Free forever</span>
-            </div>
+          <div className="cvp-hero-actions">
+            <a href="#builder" className="cvp-primary-link">
+              Analyze My CV
+            </a>
+            <a href="#pricing" className="cvp-secondary-link">
+              View Pricing
+            </a>
+          </div>
 
-            <div className="cvp-free-grid">
-              {freeTemplates.map((item) => (
-                <button
-                  key={item.name}
-                  onClick={() => openTemplatePage(item)}
-                  className="cvp-template-card"
-                  style={{
-                    borderColor:
-                      template.name === item.name ? item.color : theme.border,
-                    background: template.name === item.name ? "#EFF6FF" : theme.solid,
-                  }}
-                >
-                  <FullResumePreview form={form} template={item} ats={ats} />
-                  <span style={{ color: item.color }}>{item.pack}</span>
-                  <strong>{item.title}</strong>
-                  <p>{item.description}</p>
-                </button>
-              ))}
+          <div className="cvp-trust-row">
+            <div>
+              <strong>12,400+</strong>
+              <span>demo resumes improved</span>
             </div>
-          </section>
-
-          <section className="cvp-panel cvp-showcase-panel" style={{ background: theme.card, borderColor: theme.border }}>
-            <div className="cvp-section-head">
-              <div>
-                <strong>Upgrade Packs</strong>
-                <p style={{ color: theme.sub }}>
-                  Pick based on requirement: fresher, professional, or
-                  executive-level resume.
-                </p>
-              </div>
-              <span>{subscriptionPacks.length} packs</span>
+            <div>
+              <strong>4-part</strong>
+              <span>ATS score breakdown</span>
             </div>
-
-            <div className="cvp-pack-grid">
-              {subscriptionPacks.map((pack) => (
-                <article key={pack.id} className="cvp-pack-card">
-                  <div className="cvp-pack-top" style={{ background: pack.accent }}>
-                    <FullResumePreview
-                      form={form}
-                      ats={ats}
-                      template={{
-                        name: pack.templates[0],
-                        color: pack.color,
-                      }}
-                    />
-                  </div>
-                  <div className="cvp-pack-body">
-                    <span style={{ color: pack.color }}>{pack.price}</span>
-                    <h2>{pack.name}</h2>
-                    <p>{pack.bestFor}</p>
-                    <strong>{pack.templateCount}</strong>
-                    <ul>
-                      {pack.features.map((feature) => (
-                        <li key={feature}>{feature}</li>
-                      ))}
-                    </ul>
-                    <button
-                      onClick={() => choosePack(pack)}
-                      style={{ background: pack.color }}
-                    >
-                      Take {pack.name}
-                    </button>
-                  </div>
-                </article>
-              ))}
-            </div>
-          </section>
-
-          <div
-            className="cvp-stats-grid"
-            style={{ display: "grid", gap: 12, marginTop: 22 }}
-          >
-            <div style={{ padding: 18, borderRadius: 8, background: theme.card }}>
-              <h3>{ats}%</h3>
-              <p>ATS Score</p>
-            </div>
-
-            <div style={{ padding: 18, borderRadius: 8, background: theme.card }}>
-              <h3>{user ? "Online" : "Guest"}</h3>
-              <p>Account Status</p>
+            <div>
+              <strong>24</strong>
+              <span>free and premium templates</span>
             </div>
           </div>
         </div>
 
-        <div
-          style={{
-            display: "grid",
-            gap: 18,
-          }}
-        >
+        <div className="cvp-hero-demo" aria-label="Before and after resume preview">
+          <MiniResumePreview
+            form={demoBefore}
+            template={{ name: "free-modern", color: "#94a3b8" }}
+            score={54}
+            label="Before"
+          />
+          <MiniResumePreview
+            form={demoAfter}
+            template={{ name: "premium-ats", color: "#059669" }}
+            score={92}
+            label="After CVPilot"
+          />
+        </div>
+      </section>
+
+      <section className="cvp-section cvp-feature-band">
+        <div className="cvp-feature-grid">
+          {featureCards.map(([title, body]) => (
+            <article key={title} className="cvp-feature-card">
+              <strong>{title}</strong>
+              <p>{body}</p>
+            </article>
+          ))}
+        </div>
+      </section>
+
+      <FlowSteps />
+
+      <section className="cvp-section" id="templates">
+        <div className="cvp-section-title">
+          <span>Templates</span>
+          <h2>ATS-friendly designs that still look polished</h2>
+          <p>
+            Free templates cover the basics. Paid packs unlock fresher, professional, and
+            executive layouts with stronger visual hierarchy.
+          </p>
+        </div>
+
+        <div className="cvp-template-grid">
+          {freeTemplates.map((item) => (
+            <button
+              key={item.name}
+              onClick={() => openTemplatePage(item)}
+              className={`cvp-template-card ${template.name === item.name ? "active" : ""}`}
+              style={{ "--template-color": item.color }}
+            >
+              <MiniResumePreview form={form} template={item} score={analysis.score} label={item.pack} />
+              <strong>{item.title}</strong>
+              <p>{item.description}</p>
+            </button>
+          ))}
+        </div>
+      </section>
+
+      <section className="cvp-section" id="pricing">
+        <div className="cvp-section-title">
+          <span>Pricing</span>
+          <h2>Start free, upgrade when the resume matters</h2>
+        </div>
+
+        <div className="cvp-pricing-grid">
+          <article className="cvp-price-card">
+            <span>Starter</span>
+            <h3>Free Forever</h3>
+            <strong>Rs. 0</strong>
+            <p>For quick edits, ATS checks, and basic exporting.</p>
+            <ul>
+              <li>2 free templates</li>
+              <li>ATS score and keyword matching</li>
+              <li>PDF and DOCX export</li>
+            </ul>
+            <button onClick={() => choosePack({ id: "free-forever", name: "Free Forever" })}>
+              Start Free
+            </button>
+          </article>
+
+          {subscriptionPacks.map((pack) => (
+            <article
+              key={pack.id}
+              className={`cvp-price-card ${pack.id === "interview-pro" ? "featured" : ""}`}
+              style={{ "--plan-color": pack.color }}
+            >
+              <span>{pack.templateCount}</span>
+              <h3>{pack.name}</h3>
+              <strong>{pack.price}</strong>
+              <p>{pack.bestFor}</p>
+              <ul>
+                {pack.features.map((feature) => (
+                  <li key={feature}>{feature}</li>
+                ))}
+              </ul>
+              <button onClick={() => choosePack(pack)}>Upgrade</button>
+            </article>
+          ))}
+        </div>
+      </section>
+
+      <section className="cvp-section">
+        <div className="cvp-section-title">
+          <span>Proof</span>
+          <h2>Built to feel trustworthy before checkout</h2>
+        </div>
+
+        <div className="cvp-testimonial-grid">
+          {testimonials.map((item) => (
+            <article key={item.name} className="cvp-testimonial-card">
+              <p>"{item.quote}"</p>
+              <strong>{item.name}</strong>
+              <span>{item.role}</span>
+            </article>
+          ))}
+        </div>
+      </section>
+
+      <section className="cvp-workspace" id="account">
+        <div className="cvp-section-title">
+          <span>Workspace</span>
+          <h2>Your guided CV cockpit</h2>
+          <p>
+            Upload your current CV, paste the target job description, review the score,
+            apply suggestions, then export the final resume.
+          </p>
+        </div>
+
+        <div className="cvp-account-row">
+          <LoginPanel user={user} />
+          <div className="cvp-pack-status">
+            <span>Plan status</span>
+            <strong>{hasPaidPack ? selectedPack.name : "Free workspace"}</strong>
+            <p>{hasPaidPack ? "Premium AI and paid templates are unlocked." : "Upgrade to unlock AI rewriting and premium packs."}</p>
+          </div>
+        </div>
+
+        <MyResumes user={user} onOpen={openResume} />
+
+        <div className="cvp-product-grid">
           <BuilderForm
             form={form}
             setForm={setForm}
             runATS={runATS}
             saveResume={saveResume}
-            theme={theme}
+            analysis={analysis}
             allowAI={hasPaidPack}
           />
 
           <PreviewPanel
             form={form}
-            ats={ats}
+            ats={analysis.score}
+            analysis={analysis}
             template={template}
-            theme={theme}
             view={view}
             setView={setView}
           />
         </div>
+
+        <JobSearchPanel form={form} user={user} />
       </section>
     </main>
   );

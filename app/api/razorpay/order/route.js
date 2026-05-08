@@ -1,23 +1,17 @@
 import { NextResponse } from "next/server";
 
 import { getRazorpayPlan } from "../../../../lib/razorpayPlans";
-
-function getAuthHeader() {
-  const keyId = process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID;
-  const keySecret = process.env.RAZORPAY_KEY_SECRET;
-
-  if (!keyId || !keySecret) {
-    return null;
-  }
-
-  return `Basic ${Buffer.from(`${keyId}:${keySecret}`).toString("base64")}`;
-}
+import {
+  getRazorpayAuthHeader,
+  getRazorpayCredentials,
+} from "../../../../lib/razorpayServer";
 
 export async function POST(req) {
   try {
     const { planId, customer = {} } = await req.json();
     const plan = getRazorpayPlan(planId);
-    const authHeader = getAuthHeader();
+    const credentials = getRazorpayCredentials();
+    const authHeader = getRazorpayAuthHeader();
 
     if (!plan || plan.amount <= 0) {
       return NextResponse.json(
@@ -26,7 +20,7 @@ export async function POST(req) {
       );
     }
 
-    if (!authHeader || !process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID) {
+    if (!credentials.configured || !authHeader) {
       return NextResponse.json(
         { error: "Razorpay keys are not configured." },
         { status: 500 }
@@ -67,7 +61,7 @@ export async function POST(req) {
     }
 
     return NextResponse.json({
-      keyId: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID,
+      keyId: credentials.keyId,
       orderId: order.id,
       amount: order.amount,
       currency: order.currency,
