@@ -37,6 +37,7 @@ const freeTemplates = [
 
 const packs = [
   {
+    id: "career-launch",
     name: "Career Launch",
     price: "Rs. 199",
     color: "#2563eb",
@@ -51,6 +52,7 @@ const packs = [
     description: "Entry-level templates for internships, first jobs, and fast applications.",
   },
   {
+    id: "interview-pro",
     name: "Interview Pro",
     price: "Rs. 499",
     color: "#059669",
@@ -67,6 +69,7 @@ const packs = [
     description: "Premium templates for experienced profiles and competitive roles.",
   },
   {
+    id: "executive-edge",
     name: "Executive Edge",
     price: "Rs. 999",
     color: "#7c3aed",
@@ -174,7 +177,7 @@ export default function TemplatesGalleryPage() {
                   ))}
                 </div>
                 <Link
-                  href={`/app/api/generate/pricing?pack=${pack.name.toLowerCase().replace(/\s+/g, "-")}`}
+                  href={`/app/api/generate/pricing?pack=${pack.id}`}
                   className="block text-center w-full text-white py-3 rounded-lg font-semibold mt-6"
                   style={{ background: pack.color }}
                 >

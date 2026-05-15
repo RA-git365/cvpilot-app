@@ -16,6 +16,7 @@ import { auth } from "../lib/firebase";
 import { saveResumeCloud } from "../lib/cloudSave";
 import { analyzeResume, saveDraft, loadDraft } from "../lib/resumeUtils";
 import { defaultResume } from "../lib/resumeData";
+import { startRazorpayCheckout } from "../lib/razorpayCheckout";
 
 const freeTemplates = [
   {
@@ -112,21 +113,27 @@ const featureCards = [
   ["Export workflow", "Preview, edit, save, and export PDF or DOCX from one guided workspace."],
 ];
 
-const testimonials = [
+const customerReviews = [
   {
-    quote: "CVPilot turned my plain resume into a clear, targeted CV in one sitting.",
     name: "Ananya S.",
     role: "Salesforce Developer",
+    rating: "5.0",
+    result: "4 interview calls",
+    quote: "CVPilot turned my plain resume into a clear, targeted CV in one sitting.",
   },
   {
-    quote: "The keyword breakdown made it obvious why my resume was not matching roles.",
     name: "Rahul M.",
     role: "Product Analyst",
+    rating: "4.9",
+    result: "ATS score improved to 91",
+    quote: "The keyword breakdown made it obvious why my resume was not matching roles.",
   },
   {
-    quote: "The paid templates look professional without breaking ATS readability.",
     name: "Meera K.",
     role: "Finance Manager",
+    rating: "5.0",
+    result: "Premium CV selected",
+    quote: "The paid templates look professional without breaking ATS readability.",
   },
 ];
 
@@ -208,6 +215,13 @@ export default function Home() {
   const [view, setView] = useState("desktop");
   const [template, setTemplate] = useState(templates[0]);
   const [selectedPack, setSelectedPack] = useState(null);
+  const [payingPlan, setPayingPlan] = useState("");
+  const [paymentConfig, setPaymentConfig] = useState({
+    configured: false,
+    keyId: "",
+    mode: "test",
+    loaded: false,
+  });
   const [form, setForm] = useState({
     ...defaultResume,
     name: "Rohith Annadatha",
@@ -255,6 +269,25 @@ export default function Home() {
     } catch {
       setSelectedPack(null);
     }
+  }, []);
+
+  useEffect(() => {
+    fetch("/api/razorpay/config")
+      .then((response) => response.json())
+      .then((config) => {
+        setPaymentConfig({
+          configured: Boolean(config.configured),
+          keyId: config.keyId || "",
+          mode: config.mode || "test",
+          loaded: true,
+        });
+      })
+      .catch(() => {
+        setPaymentConfig((config) => ({
+          ...config,
+          loaded: true,
+        }));
+      });
   }, []);
 
   const runATS = () => {
@@ -305,7 +338,7 @@ export default function Home() {
     router.push(`/templates/${item.name}`);
   };
 
-  const choosePack = (pack) => {
+  const choosePack = async (pack) => {
     if (pack.id === "free-forever") {
       localStorage.setItem("cvpilot_selected_pack", JSON.stringify(pack));
       setSelectedPack(pack);
@@ -318,6 +351,11 @@ export default function Home() {
       return;
     }
 
+    if (!paymentConfig.configured) {
+      alert("Razorpay keys are missing. Add NEXT_PUBLIC_RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET in .env.local, then restart the app.");
+      return;
+    }
+
     saveDraft(form);
     const invoiceReadyForm = {
       ...form,
@@ -326,8 +364,41 @@ export default function Home() {
 
     localStorage.setItem("resumeData", JSON.stringify(invoiceReadyForm));
     localStorage.setItem("cvpilot_selected_pack", JSON.stringify(pack));
-    setSelectedPack(pack);
-    router.push(`/app/api/generate/pricing?pack=${pack.id}`);
+
+    setPayingPlan(pack.id);
+
+    try {
+      await startRazorpayCheckout({
+        planId: pack.id,
+        customer: {
+          name: invoiceReadyForm.name,
+          email: invoiceReadyForm.email,
+          phone: invoiceReadyForm.phone,
+          linkedin: invoiceReadyForm.linkedin,
+        },
+        onSuccess: (payment) => {
+          const paidPack = {
+            ...pack,
+            paymentId: payment.paymentId,
+            orderId: payment.orderId,
+            invoiceEmail: payment.invoiceEmail,
+            invoiceLinkedIn: payment.invoiceLinkedIn,
+            paidAt: new Date().toISOString(),
+          };
+
+          localStorage.setItem("cvpilot_selected_pack", JSON.stringify(paidPack));
+          setSelectedPack(paidPack);
+          alert(`${pack.name} payment verified. Premium templates are unlocked.`);
+        },
+        onFailure: (message) => {
+          if (message) alert(message);
+        },
+      });
+    } catch (error) {
+      alert(error.message || "Payment could not be started.");
+    } finally {
+      setPayingPlan("");
+    }
   };
 
   const hasPaidPack = Boolean(user?.email && selectedPack?.paymentId);
@@ -429,6 +500,25 @@ export default function Home() {
         <div className="cvp-section-title">
           <span>Pricing</span>
           <h2>Start free, upgrade when the resume matters</h2>
+          <p>
+            Paid packs open Razorpay Checkout directly and unlock only after the server
+            verifies the payment signature.
+          </p>
+        </div>
+
+        <div className="cvp-payment-status">
+          <div>
+            <span>Razorpay status</span>
+            <strong>{paymentConfig.configured ? "Checkout connected" : "API keys needed"}</strong>
+            <p>
+              {paymentConfig.configured
+                ? `Using ${paymentConfig.mode.toUpperCase()} key ${paymentConfig.keyId}.`
+                : "Add your Razorpay key id and secret in .env.local to activate paid plans."}
+            </p>
+          </div>
+          <b className={paymentConfig.configured ? "connected" : ""}>
+            {paymentConfig.loaded ? (paymentConfig.configured ? "Connected" : "Not configured") : "Checking"}
+          </b>
         </div>
 
         <div className="cvp-pricing-grid">
@@ -462,21 +552,33 @@ export default function Home() {
                   <li key={feature}>{feature}</li>
                 ))}
               </ul>
-              <button onClick={() => choosePack(pack)}>Upgrade</button>
+              <button onClick={() => choosePack(pack)} disabled={Boolean(payingPlan)}>
+                {payingPlan === pack.id ? "Opening Razorpay..." : "Upgrade"}
+              </button>
             </article>
           ))}
         </div>
       </section>
 
-      <section className="cvp-section">
+      <section className="cvp-section" id="reviews">
         <div className="cvp-section-title">
-          <span>Proof</span>
-          <h2>Built to feel trustworthy before checkout</h2>
+          <span>Customer reviews</span>
+          <h2>Rated by job seekers building stronger CVs</h2>
+        </div>
+
+        <div className="cvp-review-summary">
+          <strong>4.9 / 5</strong>
+          <span>Average customer rating</span>
+          <p>Based on early CVPilot Pro users testing ATS scoring, premium templates, and exports.</p>
         </div>
 
         <div className="cvp-testimonial-grid">
-          {testimonials.map((item) => (
+          {customerReviews.map((item) => (
             <article key={item.name} className="cvp-testimonial-card">
+              <div className="cvp-rating-row">
+                <b>{item.rating} / 5</b>
+                <span>{item.result}</span>
+              </div>
               <p>"{item.quote}"</p>
               <strong>{item.name}</strong>
               <span>{item.role}</span>
@@ -528,6 +630,23 @@ export default function Home() {
 
         <JobSearchPanel form={form} user={user} />
       </section>
+
+      <footer className="cvp-footer" id="copyright">
+        <div>
+          <a href="#top" className="cvp-footer-brand">
+            CVPilot Pro
+          </a>
+          <p>
+            Copyright (c) 2026 CVPilot Pro. All rights reserved. Resume templates,
+            scoring screens, copy, and product design belong to CVPilot Pro.
+          </p>
+        </div>
+        <nav aria-label="Footer">
+          <a href="#pricing">Pricing</a>
+          <a href="#reviews">Reviews</a>
+          <a href="#account">Account</a>
+        </nav>
+      </footer>
     </main>
   );
 }

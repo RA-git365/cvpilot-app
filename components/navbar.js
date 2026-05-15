@@ -3,6 +3,8 @@ export default function Navbar({ dark, setDark }) {
     ["Flow", "#flow"],
     ["Templates", "#templates"],
     ["Pricing", "#pricing"],
+    ["Reviews", "#reviews"],
+    ["Copyright", "#copyright"],
     ["Builder", "#builder"],
   ];
 

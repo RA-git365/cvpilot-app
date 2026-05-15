@@ -326,6 +326,8 @@ img {
 .cvp-flow-step,
 .cvp-price-card,
 .cvp-testimonial-card,
+.cvp-payment-status,
+.cvp-review-summary,
 .cvp-builder-card,
 .cvp-live-preview-card,
 .cvp-pack-status,
@@ -344,6 +346,8 @@ img {
 .is-dark .cvp-flow-step,
 .is-dark .cvp-price-card,
 .is-dark .cvp-testimonial-card,
+.is-dark .cvp-payment-status,
+.is-dark .cvp-review-summary,
 .is-dark .cvp-builder-card,
 .is-dark .cvp-live-preview-card,
 .is-dark .cvp-pack-status,
@@ -556,8 +560,92 @@ img {
   color: #ffffff;
 }
 
+.cvp-payment-status {
+  margin-bottom: 18px;
+  padding: 18px 20px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 18px;
+}
+
+.cvp-payment-status span,
+.cvp-review-summary span {
+  display: block;
+  color: var(--cvp-blue);
+  font-size: 12px;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.cvp-payment-status strong {
+  display: block;
+  margin-top: 5px;
+  color: var(--cvp-ink);
+  font-size: 22px;
+  font-weight: 950;
+}
+
+.cvp-payment-status p,
+.cvp-review-summary p {
+  margin-top: 5px;
+  color: var(--cvp-muted);
+  line-height: 1.55;
+}
+
+.cvp-payment-status b {
+  min-width: 132px;
+  min-height: 40px;
+  display: inline-grid;
+  place-items: center;
+  border-radius: 8px;
+  background: #fff1f2;
+  color: #be123c;
+  font-size: 13px;
+}
+
+.cvp-payment-status b.connected {
+  background: #e8fbf5;
+  color: #08756a;
+}
+
 .cvp-testimonial-grid {
   grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.cvp-review-summary {
+  max-width: 430px;
+  margin-bottom: 18px;
+  padding: 22px;
+}
+
+.cvp-review-summary strong {
+  display: block;
+  color: var(--cvp-ink);
+  font-size: 44px;
+  line-height: 1;
+  font-weight: 950;
+}
+
+.cvp-rating-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.cvp-rating-row b {
+  color: #b45309;
+  font-size: 18px;
+  font-weight: 950;
+}
+
+.cvp-rating-row span {
+  color: var(--cvp-teal);
+  font-size: 12px;
+  font-weight: 900;
+  text-align: right;
 }
 
 .cvp-testimonial-card p {
@@ -1037,6 +1125,48 @@ img {
   font-weight: 950;
 }
 
+.cvp-footer {
+  max-width: 1220px;
+  margin: 0 auto;
+  padding: 28px 0 8px;
+  border-top: 1px solid var(--cvp-line);
+  display: flex;
+  justify-content: space-between;
+  gap: 24px;
+  align-items: flex-start;
+}
+
+.cvp-footer-brand {
+  display: inline-block;
+  color: var(--cvp-ink);
+  font-size: 20px;
+  font-weight: 950;
+}
+
+.cvp-footer p {
+  max-width: 650px;
+  margin-top: 8px;
+  color: var(--cvp-muted);
+  line-height: 1.6;
+}
+
+.cvp-footer nav {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.cvp-footer nav a {
+  color: var(--cvp-muted);
+  font-size: 14px;
+  font-weight: 900;
+}
+
+.cvp-footer nav a:hover {
+  color: var(--cvp-ink);
+}
+
 .min-h-screen { min-height: 100vh; }
 .max-w-5xl { max-width: 64rem; }
 .max-w-7xl { max-width: 80rem; }
@@ -1276,8 +1406,30 @@ img {
   .cvp-builder-head,
   .cvp-preview-head,
   .cvp-preview-score-row,
-  .cvp-job-head {
+  .cvp-job-head,
+  .cvp-payment-status,
+  .cvp-footer {
     display: block;
+  }
+
+  .cvp-payment-status b {
+    width: 100%;
+    margin-top: 14px;
+  }
+
+  .cvp-rating-row {
+    display: block;
+  }
+
+  .cvp-rating-row span {
+    display: block;
+    margin-top: 5px;
+    text-align: left;
+  }
+
+  .cvp-footer nav {
+    justify-content: flex-start;
+    margin-top: 14px;
   }
 
   .cvp-score-tile,
