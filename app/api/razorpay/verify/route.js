@@ -1,11 +1,10 @@
-import crypto from "crypto";
-
 import { NextResponse } from "next/server";
 
 import { getRazorpayPlan } from "../../../../lib/razorpayPlans";
 import {
-  getRazorpayAuthHeader,
+  fetchRazorpayOrder,
   getRazorpayCredentials,
+  verifyRazorpaySignature,
 } from "../../../../lib/razorpayServer";
 
 export async function POST(req) {
@@ -21,7 +20,6 @@ export async function POST(req) {
 
     const plan = getRazorpayPlan(planId);
     const credentials = getRazorpayCredentials();
-    const authHeader = getRazorpayAuthHeader();
 
     if (!plan || plan.amount <= 0) {
       return NextResponse.json(
@@ -30,10 +28,10 @@ export async function POST(req) {
       );
     }
 
-    if (!credentials.configured || !authHeader) {
+    if (!credentials.configured) {
       return NextResponse.json(
         { error: "Razorpay secret key is not configured." },
-        { status: 500 }
+        { status: 401 }
       );
     }
 
@@ -44,23 +42,11 @@ export async function POST(req) {
       );
     }
 
-    const payload = `${razorpay_order_id}|${razorpay_payment_id}`;
-    const expectedSignature = crypto
-      .createHmac("sha256", credentials.keySecret)
-      .update(payload)
-      .digest("hex");
-
-    if (expectedSignature.length !== razorpay_signature.length) {
-      return NextResponse.json(
-        { verified: false, error: "Payment signature mismatch." },
-        { status: 400 }
-      );
-    }
-
-    const verified = crypto.timingSafeEqual(
-      Buffer.from(expectedSignature),
-      Buffer.from(razorpay_signature)
-    );
+    const verified = verifyRazorpaySignature({
+      orderId: razorpay_order_id,
+      paymentId: razorpay_payment_id,
+      signature: razorpay_signature,
+    });
 
     if (!verified) {
       return NextResponse.json(
@@ -69,25 +55,7 @@ export async function POST(req) {
       );
     }
 
-    const orderResponse = await fetch(
-      `https://api.razorpay.com/v1/orders/${razorpay_order_id}`,
-      {
-        headers: {
-          Authorization: authHeader,
-        },
-      }
-    );
-    const order = await orderResponse.json();
-
-    if (!orderResponse.ok) {
-      return NextResponse.json(
-        {
-          verified: false,
-          error: order.error?.description || "Unable to confirm Razorpay order.",
-        },
-        { status: orderResponse.status }
-      );
-    }
+    const order = await fetchRazorpayOrder(razorpay_order_id);
 
     if (order.amount !== plan.amount || order.currency !== plan.currency) {
       return NextResponse.json(
@@ -122,10 +90,10 @@ export async function POST(req) {
     return NextResponse.json(
       {
         verified: false,
-        error: "Unable to verify payment.",
+        error: error.error?.description || error.message || "Unable to verify payment.",
         details: error.message,
       },
-      { status: 500 }
+      { status: error.statusCode === 401 ? 401 : 500 }
     );
   }
 }

@@ -7,6 +7,8 @@ import { onAuthStateChanged } from "firebase/auth";
 import { auth } from "../../../../../lib/firebase";
 import { startRazorpayCheckout } from "../../../../../lib/razorpayCheckout";
 
+const merchantUpiId = process.env.NEXT_PUBLIC_CVPILOT_UPI_ID || "";
+
 const plans = [
   {
     id: "free-forever",
@@ -74,6 +76,19 @@ const plans = [
   },
 ];
 
+function getPlanAmount(plan) {
+  return Number(String(plan.price || "").replace(/[^0-9.]/g, ""));
+}
+
+function buildUpiPaymentUrl({ plan, user }) {
+  const amount = getPlanAmount(plan);
+  const note = `${plan.name} subscription${user?.email ? ` - ${user.email}` : ""}`;
+
+  return `upi://pay?pa=${encodeURIComponent(merchantUpiId)}&pn=${encodeURIComponent(
+    "CVPilot Pro"
+  )}&am=${encodeURIComponent(amount.toFixed(2))}&cu=INR&tn=${encodeURIComponent(note)}`;
+}
+
 export default function PricingPage() {
   const router = useRouter();
   const [selectedPack, setSelectedPack] = useState("");
@@ -127,7 +142,7 @@ export default function PricingPage() {
     }
 
     if (!paymentConfig.configured) {
-      alert("Razorpay keys are missing. Add your key id and key secret in .env.local, then restart the app.");
+      alert("Razorpay keys are missing. Add your key id and key secret in .env, then restart the app.");
       return;
     }
 
@@ -183,6 +198,28 @@ export default function PricingPage() {
     localStorage.setItem("cvpilot_selected_pack", JSON.stringify(plan));
   };
 
+  const payByUpi = async (plan) => {
+    if (!merchantUpiId) {
+      alert("UPI ID is not configured. Add NEXT_PUBLIC_CVPILOT_UPI_ID in .env and restart the app.");
+      return;
+    }
+
+    if (!user?.email) {
+      alert("Please login first so the UPI payment can be matched to your account.");
+      router.push("/");
+      return;
+    }
+
+    try {
+      await navigator.clipboard?.writeText(merchantUpiId);
+    } catch {
+      // UPI app opening still works even if clipboard access is blocked.
+    }
+
+    window.location.href = buildUpiPaymentUrl({ plan, user });
+    alert("UPI app opened and UPI ID copied. Razorpay unlocks automatically; UPI payments need manual activation after proof.");
+  };
+
   return (
     <main className="min-h-screen bg-slate-950 text-white px-6 py-14">
       <div className="max-w-7xl mx-auto">
@@ -211,7 +248,10 @@ export default function PricingPage() {
             <p className="text-slate-400 mt-2 leading-7">
               {paymentConfig.configured
                 ? `Using ${paymentConfig.mode.toUpperCase()} key ${paymentConfig.keyId}. Orders are created and verified on the server.`
-                : "Add NEXT_PUBLIC_RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET in .env.local to activate paid plans."}
+                : "Add RAZORPAY_KEY_ID, NEXT_PUBLIC_RAZORPAY_KEY_ID, and RAZORPAY_KEY_SECRET in .env to activate paid plans."}
+            </p>
+            <p className="text-slate-400 mt-2 leading-7">
+              Manual UPI fallback: {merchantUpiId || "add NEXT_PUBLIC_CVPILOT_UPI_ID in .env"}.
             </p>
           </div>
           <strong
@@ -273,6 +313,21 @@ export default function PricingPage() {
                 >
                   {payingPlan === plan.id ? "Opening Razorpay..." : plan.button}
                 </button>
+
+                {plan.id !== "free-forever" && (
+                  <button
+                    onClick={() => payByUpi(plan)}
+                    disabled={!merchantUpiId}
+                    className="w-full py-3 rounded-lg font-semibold mt-3"
+                    style={{
+                      background: "#ffffff",
+                      color: plan.color,
+                      opacity: merchantUpiId ? 1 : 0.6,
+                    }}
+                  >
+                    Pay by UPI
+                  </button>
+                )}
               </article>
             );
           })}

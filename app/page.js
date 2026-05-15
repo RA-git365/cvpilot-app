@@ -113,6 +113,8 @@ const featureCards = [
   ["Export workflow", "Preview, edit, save, and export PDF or DOCX from one guided workspace."],
 ];
 
+const merchantUpiId = process.env.NEXT_PUBLIC_CVPILOT_UPI_ID || "";
+
 const customerReviews = [
   {
     name: "Ananya S.",
@@ -206,6 +208,19 @@ function FlowSteps() {
       </div>
     </section>
   );
+}
+
+function getPackAmount(pack) {
+  return Number(String(pack.price || "").replace(/[^0-9.]/g, ""));
+}
+
+function buildUpiPaymentUrl({ pack, user }) {
+  const amount = getPackAmount(pack);
+  const note = `${pack.name} subscription${user?.email ? ` - ${user.email}` : ""}`;
+
+  return `upi://pay?pa=${encodeURIComponent(merchantUpiId)}&pn=${encodeURIComponent(
+    "CVPilot Pro"
+  )}&am=${encodeURIComponent(amount.toFixed(2))}&cu=INR&tn=${encodeURIComponent(note)}`;
 }
 
 export default function Home() {
@@ -352,7 +367,7 @@ export default function Home() {
     }
 
     if (!paymentConfig.configured) {
-      alert("Razorpay keys are missing. Add NEXT_PUBLIC_RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET in .env.local, then restart the app.");
+      alert("Razorpay keys are missing. Add RAZORPAY_KEY_ID, NEXT_PUBLIC_RAZORPAY_KEY_ID, and RAZORPAY_KEY_SECRET in .env, then restart the app.");
       return;
     }
 
@@ -399,6 +414,28 @@ export default function Home() {
     } finally {
       setPayingPlan("");
     }
+  };
+
+  const openUpiPayment = async (pack) => {
+    if (!merchantUpiId) {
+      alert("UPI ID is not configured. Add NEXT_PUBLIC_CVPILOT_UPI_ID in .env and restart the app.");
+      return;
+    }
+
+    if (!user?.email) {
+      alert("Please login first so the UPI payment can be matched to your account.");
+      document.getElementById("account")?.scrollIntoView({ behavior: "smooth" });
+      return;
+    }
+
+    try {
+      await navigator.clipboard?.writeText(merchantUpiId);
+    } catch {
+      // Clipboard is a convenience only; payment opening should still continue.
+    }
+
+    window.location.href = buildUpiPaymentUrl({ pack, user });
+    alert("UPI app opened and UPI ID copied. Use Razorpay for automatic unlock, or send UPI payment proof for manual activation.");
   };
 
   const hasPaidPack = Boolean(user?.email && selectedPack?.paymentId);
@@ -513,7 +550,10 @@ export default function Home() {
             <p>
               {paymentConfig.configured
                 ? `Using ${paymentConfig.mode.toUpperCase()} key ${paymentConfig.keyId}.`
-                : "Add your Razorpay key id and secret in .env.local to activate paid plans."}
+                : "Add your Razorpay key id and secret in .env to activate paid plans."}
+            </p>
+            <p>
+              Manual UPI fallback: {merchantUpiId || "add NEXT_PUBLIC_CVPILOT_UPI_ID in .env"}.
             </p>
           </div>
           <b className={paymentConfig.configured ? "connected" : ""}>
@@ -552,9 +592,18 @@ export default function Home() {
                   <li key={feature}>{feature}</li>
                 ))}
               </ul>
-              <button onClick={() => choosePack(pack)} disabled={Boolean(payingPlan)}>
-                {payingPlan === pack.id ? "Opening Razorpay..." : "Upgrade"}
-              </button>
+              <div className="cvp-price-actions">
+                <button onClick={() => choosePack(pack)} disabled={Boolean(payingPlan)}>
+                  {payingPlan === pack.id ? "Opening Razorpay..." : "Upgrade"}
+                </button>
+                <button
+                  className="cvp-upi-action"
+                  onClick={() => openUpiPayment(pack)}
+                  disabled={!merchantUpiId}
+                >
+                  Pay by UPI
+                </button>
+              </div>
             </article>
           ))}
         </div>

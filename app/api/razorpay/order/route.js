@@ -2,7 +2,8 @@ import { NextResponse } from "next/server";
 
 import { getRazorpayPlan } from "../../../../lib/razorpayPlans";
 import {
-  getRazorpayAuthHeader,
+  buildRazorpayReceipt,
+  createRazorpayOrder,
   getRazorpayCredentials,
 } from "../../../../lib/razorpayServer";
 
@@ -11,7 +12,6 @@ export async function POST(req) {
     const { planId, customer = {} } = await req.json();
     const plan = getRazorpayPlan(planId);
     const credentials = getRazorpayCredentials();
-    const authHeader = getRazorpayAuthHeader();
 
     if (!plan || plan.amount <= 0) {
       return NextResponse.json(
@@ -20,45 +20,32 @@ export async function POST(req) {
       );
     }
 
-    if (!credentials.configured || !authHeader) {
+    if (plan.amount < 100) {
+      return NextResponse.json(
+        { error: "Minimum Razorpay order amount is 100 paise." },
+        { status: 400 }
+      );
+    }
+
+    if (!credentials.configured) {
       return NextResponse.json(
         { error: "Razorpay keys are not configured." },
-        { status: 500 }
+        { status: 401 }
       );
     }
 
-    const receipt = `cvp_${plan.id}_${Date.now()}`.slice(0, 40);
-    const response = await fetch("https://api.razorpay.com/v1/orders", {
-      method: "POST",
-      headers: {
-        Authorization: authHeader,
-        "Content-Type": "application/json",
+    const order = await createRazorpayOrder({
+      amount: plan.amount,
+      currency: plan.currency,
+      receipt: buildRazorpayReceipt(`cvp_${plan.id}`),
+      notes: {
+        planId: plan.id,
+        planName: plan.name,
+        customerEmail: customer.email || "",
+        invoiceEmail: customer.email || "",
+        invoiceLinkedIn: customer.linkedin || "",
       },
-      body: JSON.stringify({
-        amount: plan.amount,
-        currency: plan.currency,
-        receipt,
-        notes: {
-          planId: plan.id,
-          planName: plan.name,
-          customerEmail: customer.email || "",
-          invoiceEmail: customer.email || "",
-          invoiceLinkedIn: customer.linkedin || "",
-        },
-      }),
     });
-
-    const order = await response.json();
-
-    if (!response.ok) {
-      return NextResponse.json(
-        {
-          error: order.error?.description || "Razorpay order creation failed.",
-          details: order,
-        },
-        { status: response.status }
-      );
-    }
 
     return NextResponse.json({
       keyId: credentials.keyId,
@@ -74,10 +61,10 @@ export async function POST(req) {
   } catch (error) {
     return NextResponse.json(
       {
-        error: "Unable to create payment order.",
+        error: error.error?.description || error.message || "Unable to create payment order.",
         details: error.message,
       },
-      { status: 500 }
+      { status: error.statusCode === 401 ? 401 : 500 }
     );
   }
 }

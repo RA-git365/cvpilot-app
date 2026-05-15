@@ -333,7 +333,8 @@ img {
 .cvp-pack-status,
 .cvp-login-card,
 .cvp-dashboard-card,
-.cvp-job-panel {
+.cvp-job-panel,
+.cvp-keyword-search {
   border: 1px solid var(--cvp-line);
   border-radius: 8px;
   background: rgba(255, 255, 255, 0.92);
@@ -353,7 +354,8 @@ img {
 .is-dark .cvp-pack-status,
 .is-dark .cvp-login-card,
 .is-dark .cvp-dashboard-card,
-.is-dark .cvp-job-panel {
+.is-dark .cvp-job-panel,
+.is-dark .cvp-keyword-search {
   background: rgba(18, 24, 38, 0.92) !important;
 }
 
@@ -880,6 +882,183 @@ img {
   color: #be123c;
 }
 
+.cvp-keyword-search {
+  margin-top: 18px;
+  padding: 18px;
+  box-shadow: none;
+}
+
+.cvp-keyword-search-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  align-items: flex-start;
+}
+
+.cvp-keyword-search-head span {
+  color: var(--cvp-blue);
+  font-size: 12px;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.cvp-keyword-search-head h3 {
+  margin-top: 5px;
+  color: var(--cvp-ink);
+  font-size: 22px;
+  font-weight: 950;
+}
+
+.cvp-keyword-search-head p,
+.cvp-keyword-empty,
+.cvp-keyword-result p {
+  color: var(--cvp-muted);
+  line-height: 1.55;
+  font-size: 13px;
+}
+
+.cvp-keyword-search-head p {
+  margin-top: 7px;
+}
+
+.cvp-keyword-score {
+  width: 92px;
+  min-height: 76px;
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+  align-content: center;
+  border: 1px solid rgba(36, 87, 214, 0.24);
+  border-radius: 8px;
+  background: #edf5ff;
+  color: var(--cvp-blue);
+}
+
+.cvp-keyword-score strong {
+  font-size: 24px;
+  line-height: 1;
+}
+
+.cvp-keyword-score span {
+  margin-top: 5px;
+  font-size: 11px;
+}
+
+.cvp-keyword-search-box {
+  display: grid;
+  gap: 8px;
+  margin-top: 16px;
+}
+
+.cvp-keyword-search-box span {
+  color: var(--cvp-ink);
+  font-size: 13px;
+  font-weight: 900;
+}
+
+.cvp-keyword-search-box textarea {
+  width: 100%;
+  min-height: 88px;
+  resize: vertical;
+  border: 1px solid #b9c6d8;
+  border-radius: 8px;
+  background: #ffffff;
+  color: #111827;
+  padding: 12px 13px;
+  outline: none;
+}
+
+.cvp-keyword-search-box textarea:focus {
+  border-color: var(--cvp-blue);
+  box-shadow: 0 0 0 4px rgba(36, 87, 214, 0.12);
+}
+
+.cvp-keyword-search-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 9px;
+  margin-top: 12px;
+}
+
+.cvp-keyword-search-actions button {
+  min-height: 38px;
+  border: 1px solid var(--cvp-line);
+  border-radius: 8px;
+  background: var(--cvp-paper);
+  color: var(--cvp-ink);
+  padding: 0 12px;
+  font-size: 13px;
+  font-weight: 900;
+}
+
+.cvp-keyword-search-summary,
+.cvp-keyword-results {
+  display: grid;
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.cvp-keyword-search-summary {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.cvp-keyword-search-summary div,
+.cvp-keyword-result {
+  border: 1px solid var(--cvp-line);
+  border-radius: 8px;
+  background: var(--cvp-paper);
+  padding: 12px;
+}
+
+.cvp-keyword-search-summary strong {
+  display: block;
+  color: var(--cvp-ink);
+  font-size: 22px;
+  font-weight: 950;
+}
+
+.cvp-keyword-search-summary span {
+  display: block;
+  margin-top: 3px;
+  color: var(--cvp-muted);
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.cvp-keyword-result {
+  border-left: 4px solid #be123c;
+}
+
+.cvp-keyword-result.found {
+  border-left-color: var(--cvp-teal);
+}
+
+.cvp-keyword-result div {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.cvp-keyword-result strong {
+  color: var(--cvp-ink);
+  font-weight: 950;
+}
+
+.cvp-keyword-result span {
+  color: #be123c;
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.cvp-keyword-result.found span {
+  color: var(--cvp-teal);
+}
+
+.cvp-keyword-result p,
+.cvp-keyword-empty {
+  margin-top: 7px;
+}
+
 .cvp-suggestion-list {
   display: grid;
   gap: 8px;
@@ -1392,6 +1571,7 @@ img {
   .cvp-account-row,
   .cvp-breakdown-grid,
   .cvp-keyword-grid,
+  .cvp-keyword-search-summary,
   .cvp-field-grid,
   .cvp-job-query,
   .cvp-job-grid {
@@ -1407,9 +1587,29 @@ img {
   .cvp-preview-head,
   .cvp-preview-score-row,
   .cvp-job-head,
+  .cvp-keyword-search-head,
   .cvp-payment-status,
   .cvp-footer {
     display: block;
+  }
+
+  .cvp-keyword-score {
+    width: 100%;
+    margin-top: 14px;
+  }
+
+  .cvp-keyword-search-actions {
+    display: grid;
+    grid-template-columns: 1fr;
+  }
+
+  .cvp-keyword-result div {
+    display: block;
+  }
+
+  .cvp-keyword-result span {
+    display: block;
+    margin-top: 4px;
   }
 
   .cvp-payment-status b {

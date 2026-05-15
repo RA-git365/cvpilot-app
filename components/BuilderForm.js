@@ -1,5 +1,8 @@
+import { useMemo, useState } from "react";
+
 import { parseResume } from "../lib/parseResume";
 import { improveResume } from "../lib/aiImprove";
+import { buildResumePlainText } from "../lib/resumeUtils";
 
 const fieldGroups = [
   {
@@ -63,8 +66,162 @@ function KeywordList({ title, items, empty, tone }) {
   );
 }
 
+const searchableSections = [
+  ["summary", "Summary"],
+  ["skills", "Skills"],
+  ["exp", "Experience"],
+  ["projects", "Projects"],
+  ["education", "Education"],
+  ["certifications", "Certifications"],
+  ["achievements", "Achievements"],
+  ["languages", "Languages"],
+];
+
 function escapePattern(value) {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function parseSearchKeywords(value = "") {
+  const seen = new Set();
+
+  return String(value)
+    .split(/[,;\n]+/)
+    .map((item) => item.trim())
+    .filter(Boolean)
+    .filter((item) => {
+      const key = item.toLowerCase();
+
+      if (seen.has(key)) return false;
+
+      seen.add(key);
+      return true;
+    })
+    .slice(0, 18);
+}
+
+function countMatches(text = "", keyword = "") {
+  const pattern = new RegExp(escapePattern(keyword), "gi");
+  return String(text || "").match(pattern)?.length || 0;
+}
+
+function buildKeywordSearchResults(form, keywords) {
+  const resumeText = buildResumePlainText(form);
+
+  return keywords.map((keyword) => {
+    const sections = searchableSections
+      .map(([key, label]) => ({
+        label,
+        count: countMatches(form[key], keyword),
+      }))
+      .filter((section) => section.count > 0);
+
+    return {
+      keyword,
+      count: countMatches(resumeText, keyword),
+      sections,
+    };
+  });
+}
+
+function KeywordSearchPanel({ form, analysis }) {
+  const [query, setQuery] = useState("");
+  const keywords = useMemo(() => parseSearchKeywords(query), [query]);
+  const results = useMemo(() => buildKeywordSearchResults(form, keywords), [form, keywords]);
+  const foundCount = results.filter((item) => item.count > 0).length;
+  const missingCount = results.filter((item) => item.count === 0).length;
+  const totalMatches = results.reduce((total, item) => total + item.count, 0);
+
+  const useKeywords = (items) => {
+    setQuery(items.slice(0, 12).join(", "));
+  };
+
+  return (
+    <section className="cvp-keyword-search" id="keywords">
+      <div className="cvp-keyword-search-head">
+        <div>
+          <span>Keyword finder</span>
+          <h3>Search resume keywords</h3>
+          <p>
+            Check exact skills, tools, job-title words, and ATS phrases across your CV before exporting.
+          </p>
+        </div>
+        <div className="cvp-keyword-score">
+          <strong>{keywords.length ? `${foundCount}/${keywords.length}` : "0/0"}</strong>
+          <span>found</span>
+        </div>
+      </div>
+
+      <label className="cvp-keyword-search-box">
+        <span>Keywords to find</span>
+        <textarea
+          value={query}
+          onChange={(event) => setQuery(event.target.value)}
+          rows={3}
+          placeholder="Example: Salesforce, Apex, LWC, REST API"
+        />
+      </label>
+
+      <div className="cvp-keyword-search-actions">
+        <button
+          type="button"
+          onClick={() => useKeywords(analysis.missingKeywords)}
+          disabled={analysis.missingKeywords.length === 0}
+        >
+          Search Missing JD Keywords
+        </button>
+        <button
+          type="button"
+          onClick={() => useKeywords(analysis.matchedKeywords)}
+          disabled={analysis.matchedKeywords.length === 0}
+        >
+          Search Matched JD Keywords
+        </button>
+        <button type="button" onClick={() => setQuery("")} disabled={!query}>
+          Clear
+        </button>
+      </div>
+
+      <div className="cvp-keyword-search-summary">
+        <div>
+          <strong>{foundCount}</strong>
+          <span>keywords found</span>
+        </div>
+        <div>
+          <strong>{missingCount}</strong>
+          <span>keywords missing</span>
+        </div>
+        <div>
+          <strong>{totalMatches}</strong>
+          <span>total matches</span>
+        </div>
+      </div>
+
+      <div className="cvp-keyword-results">
+        {results.length > 0 ? (
+          results.map((item) => (
+            <article
+              key={item.keyword}
+              className={`cvp-keyword-result ${item.count > 0 ? "found" : "missing"}`}
+            >
+              <div>
+                <strong>{item.keyword}</strong>
+                <span>{item.count > 0 ? `${item.count} match${item.count === 1 ? "" : "es"}` : "Missing"}</span>
+              </div>
+              <p>
+                {item.sections.length > 0
+                  ? item.sections.map((section) => `${section.label} (${section.count})`).join(", ")
+                  : "Add this only if it honestly matches your experience."}
+              </p>
+            </article>
+          ))
+        ) : (
+          <p className="cvp-keyword-empty">
+            Type keywords above or use the job-description keyword shortcuts.
+          </p>
+        )}
+      </div>
+    </section>
+  );
 }
 
 function normalizeImportedText(text) {
@@ -315,6 +472,8 @@ export default function BuilderForm({
           </div>
         )}
       </div>
+
+      <KeywordSearchPanel form={form} analysis={analysis} />
 
       {!allowAI && (
         <div className="cvp-premium-note">
