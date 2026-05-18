@@ -19,7 +19,7 @@ export default function PreviewPanel({
     try {
       if (navigator.share) {
         await navigator.share({
-          title: "My Resume - CVPilot",
+          title: "My Resume",
           text: preview,
         });
       } else {

@@ -77,6 +77,21 @@ const searchableSections = [
   ["languages", "Languages"],
 ];
 
+const mediaFields = [
+  {
+    name: "photoImage",
+    label: "Candidate photo",
+    accept: "image/png,image/jpeg,image/webp",
+    helper: "Used only by selected premium visual templates.",
+  },
+  {
+    name: "signatureImage",
+    label: "Scanned signature",
+    accept: "image/png,image/jpeg,image/webp",
+    helper: "Best with a clean white or transparent background.",
+  },
+];
+
 function escapePattern(value) {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
@@ -120,6 +135,16 @@ function buildKeywordSearchResults(form, keywords) {
       count: countMatches(resumeText, keyword),
       sections,
     };
+  });
+}
+
+function readImageDataUrl(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+
+    reader.onload = () => resolve(String(reader.result || ""));
+    reader.onerror = () => reject(reader.error);
+    reader.readAsDataURL(file);
   });
 }
 
@@ -330,6 +355,43 @@ export default function BuilderForm({
     });
   };
 
+  const uploadMedia = async (fieldName, event) => {
+    const file = event.target.files?.[0];
+
+    if (!file) return;
+
+    if (!file.type.startsWith("image/")) {
+      alert("Please upload a PNG, JPG, or WebP image.");
+      return;
+    }
+
+    if (file.size > 900 * 1024) {
+      alert("Please use an image below 900 KB so the resume stays fast to preview and save.");
+      return;
+    }
+
+    try {
+      const image = await readImageDataUrl(file);
+
+      setForm({
+        ...form,
+        [fieldName]: image,
+      });
+    } catch (error) {
+      console.error(error);
+      alert("Could not read this image. Try another file.");
+    } finally {
+      event.target.value = "";
+    }
+  };
+
+  const removeMedia = (fieldName) => {
+    setForm({
+      ...form,
+      [fieldName]: "",
+    });
+  };
+
   const uploadResume = async (event) => {
     const file = event.target.files?.[0];
 
@@ -493,6 +555,47 @@ export default function BuilderForm({
           Generate AI Draft
         </button>
       </div>
+
+      <section className="cvp-form-group">
+        <div className="cvp-form-group-head">
+          <h3>Template assets</h3>
+          <p>
+            Upload optional files that appear only inside resume templates and exports.
+          </p>
+        </div>
+
+        <div className="cvp-media-grid">
+          {mediaFields.map((field) => (
+            <article key={field.name} className="cvp-media-card">
+              <div className={`cvp-media-status ${form[field.name] ? "added" : ""}`}>
+                <span>{form[field.name] ? "Added" : "Empty"}</span>
+              </div>
+              <div>
+                <strong>{field.label}</strong>
+                <p>{field.helper}</p>
+                <div className="cvp-media-actions">
+                  <label>
+                    Upload
+                    <input
+                      type="file"
+                      hidden
+                      accept={field.accept}
+                      onChange={(event) => uploadMedia(field.name, event)}
+                    />
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => removeMedia(field.name)}
+                    disabled={!form[field.name]}
+                  >
+                    Remove
+                  </button>
+                </div>
+              </div>
+            </article>
+          ))}
+        </div>
+      </section>
 
       <div className="cvp-form-groups">
         {fieldGroups.map((group) => (

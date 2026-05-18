@@ -115,6 +115,13 @@ const featureCards = [
 
 const merchantUpiId = process.env.NEXT_PUBLIC_CVPILOT_UPI_ID || "";
 
+const packAnchors = {
+  "free-forever": "free-templates",
+  "career-launch": "career-launch",
+  "interview-pro": "interview-pro",
+  "executive-edge": "executive-edge",
+};
+
 const customerReviews = [
   {
     name: "Ananya S.",
@@ -353,10 +360,29 @@ export default function Home() {
     router.push(`/templates/${item.name}`);
   };
 
+  const openSubscribedPack = (pack = selectedPack) => {
+    if (!pack) return;
+
+    const invoiceReadyForm = {
+      ...form,
+      email: user?.email || form.email,
+    };
+
+    saveDraft(invoiceReadyForm);
+    localStorage.setItem("resumeData", JSON.stringify(invoiceReadyForm));
+    router.push(`/templates/results#${packAnchors[pack.id] || "free-templates"}`);
+  };
+
   const choosePack = async (pack) => {
     if (pack.id === "free-forever") {
       localStorage.setItem("cvpilot_selected_pack", JSON.stringify(pack));
       setSelectedPack(pack);
+      openSubscribedPack(pack);
+      return;
+    }
+
+    if (selectedPack?.id === pack.id && selectedPack?.paymentId) {
+      openSubscribedPack(selectedPack);
       return;
     }
 
@@ -403,7 +429,7 @@ export default function Home() {
 
           localStorage.setItem("cvpilot_selected_pack", JSON.stringify(paidPack));
           setSelectedPack(paidPack);
-          alert(`${pack.name} payment verified. Premium templates are unlocked.`);
+          openSubscribedPack(paidPack);
         },
         onFailure: (message) => {
           if (message) alert(message);
@@ -543,24 +569,6 @@ export default function Home() {
           </p>
         </div>
 
-        <div className="cvp-payment-status">
-          <div>
-            <span>Razorpay status</span>
-            <strong>{paymentConfig.configured ? "Checkout connected" : "API keys needed"}</strong>
-            <p>
-              {paymentConfig.configured
-                ? `Using ${paymentConfig.mode.toUpperCase()} key ${paymentConfig.keyId}.`
-                : "Add your Razorpay key id and secret in .env to activate paid plans."}
-            </p>
-            <p>
-              Manual UPI fallback: {merchantUpiId || "add NEXT_PUBLIC_CVPILOT_UPI_ID in .env"}.
-            </p>
-          </div>
-          <b className={paymentConfig.configured ? "connected" : ""}>
-            {paymentConfig.loaded ? (paymentConfig.configured ? "Connected" : "Not configured") : "Checking"}
-          </b>
-        </div>
-
         <div className="cvp-pricing-grid">
           <article className="cvp-price-card">
             <span>Starter</span>
@@ -594,7 +602,11 @@ export default function Home() {
               </ul>
               <div className="cvp-price-actions">
                 <button onClick={() => choosePack(pack)} disabled={Boolean(payingPlan)}>
-                  {payingPlan === pack.id ? "Opening Razorpay..." : "Upgrade"}
+                  {payingPlan === pack.id
+                    ? "Opening Razorpay..."
+                    : selectedPack?.id === pack.id && selectedPack?.paymentId
+                      ? "Open Pack"
+                      : "Upgrade"}
                 </button>
                 <button
                   className="cvp-upi-action"
@@ -652,6 +664,11 @@ export default function Home() {
             <span>Plan status</span>
             <strong>{hasPaidPack ? selectedPack.name : "Free workspace"}</strong>
             <p>{hasPaidPack ? "Premium AI and paid templates are unlocked." : "Upgrade to unlock AI rewriting and premium packs."}</p>
+            {hasPaidPack && (
+              <button className="cvp-pack-open" onClick={() => openSubscribedPack()}>
+                Open subscribed pack
+              </button>
+            )}
           </div>
         </div>
 
